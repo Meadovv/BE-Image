@@ -51,7 +51,8 @@ app.get('/metadata/:collection_index/:token_id', async (req, res) => {
         const collection_name = feltToStr(await nft_contract_view.name());
         const owner = await nft_contract_view.owner_of(token_id);
         const nft_metadata = await gacha_contract_view.token_metadata(nft_contract_address, token_id);
-
+        const nft_image_array = await nft_contract_view.token_image(Number(nft_metadata[0]));
+        const nft_image = nft_image_array.map(feltToStr).join('');
         return res.status(200).send({
             name: `${collection_name} #${token_id}`,
             attributes: [
@@ -68,7 +69,7 @@ app.get('/metadata/:collection_index/:token_id', async (req, res) => {
                     value: Number(nft_metadata[2])
                 }
             ],
-            image: `${process.env.BASE_URL}/image/${Number(collection_index)}/${Number(nft_metadata[0])}`,
+            image: nft_image,
             owner: formatStarknet('0x0' + owner.toString(16))
         })
     } catch (err) {
@@ -81,14 +82,6 @@ app.get('/metadata/:collection_index/:token_id', async (req, res) => {
             error: err.message
         });
     }
-});
-
-app.get('/image/:id/:type', (req, res) => {
-    const { id, type } = req.params;
-    const filePath = path.join(__dirname, 'images/' + id + '/' + type + '.png');
-    res.sendFile(filePath, (err) => {
-        res.sendFile('https://th.bing.com/th/id/OIP.WoxzZ7a55-kKVyfIUDwdVgHaHa');
-    });
 });
 
 app.get('*', (req, res) => {
