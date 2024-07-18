@@ -26,26 +26,31 @@ const formatStarknet = (address) => {
   };
   
 
-app.get('/metadata/:collection_address/:token_id', async (req, res) => {
+app.get('/metadata/:collection_index/:token_id', async (req, res) => {
     try {
-        const collection_address = req.params.collection_address;
+        const collection_index = req.params.collection_index;
         const token_id = req.params.token_id;
 
         const provider = new RpcProvider({
             nodeUrl: process.env.RPC_URL,
         });
-        const { abi: nft_contract_abi } = await provider.getClassAt(collection_address);
-        if (!nft_contract_abi) throw new Error('Invalid NFT contract address');
-        const nft_contract_view = new Contract(nft_contract_abi, collection_address, provider);
 
         const { abi: gacha_contract_abi } = await provider.getClassAt(process.env.GACHA_CONTRACT_ADDRESS);
         if(!gacha_contract_abi) throw new Error('Invalid Gacha contract address');
         const gacha_contract_view = new Contract(gacha_contract_abi, process.env.GACHA_CONTRACT_ADDRESS, provider);
+
+        // get NFT contract address by collection index
+        const nft_contract_address_bigint = await gacha_contract_view.get_collection(collection_index);
+        const nft_contract_address = formatStarknet('0x0' + nft_contract_address_bigint.toString(16));
+
+        // connect to NFT contract
+        const { abi: nft_contract_abi } = await provider.getClassAt(nft_contract_address);
+        if (!nft_contract_abi) throw new Error('Invalid NFT contract address');
+        const nft_contract_view = new Contract(nft_contract_abi, nft_contract_address, provider);
         
         const collection_name = feltToStr(await nft_contract_view.name());
         const owner = await nft_contract_view.owner_of(token_id);
-        const collection_index = await gacha_contract_view.get_collection_index(collection_address);
-        const nft_metadata = await gacha_contract_view.token_metadata(collection_address, token_id);
+        const nft_metadata = await gacha_contract_view.token_metadata(nft_contract_address, token_id);
 
         return res.status(200).send({
             name: `${collection_name} #${token_id}`,
@@ -72,7 +77,8 @@ app.get('/metadata/:collection_address/:token_id', async (req, res) => {
             name: 'Unknown NFT',
             image: 'https://th.bing.com/th/id/OIP.WoxzZ7a55-kKVyfIUDwdVgHaHa',
             attributes: [],
-            owner: formatStarknet('0x0')
+            owner: formatStarknet('0x0'),
+            error: err.message
         });
     }
 });
