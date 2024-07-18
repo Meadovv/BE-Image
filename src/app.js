@@ -80,8 +80,7 @@ app.get('/metadata/:collection_address/:token_id', async (req, res) => {
 const imageDirectory = path.join(__dirname, 'images');
 app.get('/image/:id/:type', (req, res) => {
     const { id, type } = req.params;
-    const filePath = path.join(imageDirectory, id, `${type}`);
-    res.sendFile(filePath, (err) => {
+    res.sendFile(`./images/${collection_index}/${type}.png`, (err) => {
         res.sendFile('https://th.bing.com/th/id/OIP.WoxzZ7a55-kKVyfIUDwdVgHaHa');
     });
 });
