@@ -1,6 +1,6 @@
+const axios = require('axios');
 const express = require('express');
 const app = express();
-const path = require('path');
 const {
     Contract, RpcProvider
 } = require('starknet');
@@ -18,68 +18,62 @@ const feltToStr = (felt) => {
 const formatStarknet = (address) => {
     if (!address) return '';
     return (
-      address.split('x')[0] +
-      'x' +
-      '0'.repeat(66 - address.length) +
-      address.split('x')[1]
+        address.split('x')[0] +
+        'x' +
+        '0'.repeat(66 - address.length) +
+        address.split('x')[1]
     );
-  };
-  
+};
 
-app.get('/metadata/:collection_index/:token_id', async (req, res) => {
+
+app.get('/metadata/:token_id', async (req, res) => {
     try {
-        const collection_index = req.params.collection_index;
         const token_id = req.params.token_id;
 
         const provider = new RpcProvider({
             nodeUrl: process.env.RPC_URL,
         });
 
-        const { abi: gacha_contract_abi } = await provider.getClassAt(process.env.GACHA_CONTRACT_ADDRESS);
-        if(!gacha_contract_abi) throw new Error('Invalid Gacha contract address');
-        const gacha_contract_view = new Contract(gacha_contract_abi, process.env.GACHA_CONTRACT_ADDRESS, provider);
-
-        // get NFT contract address by collection index
-        const nft_contract_address_bigint = await gacha_contract_view.get_collection(collection_index);
-        const nft_contract_address = formatStarknet('0x0' + nft_contract_address_bigint.toString(16));
-
-        // connect to NFT contract
-        const { abi: nft_contract_abi } = await provider.getClassAt(nft_contract_address);
+        const { abi: nft_contract_abi } = await provider.getClassAt(process.env.NFT_CONTRACT_ADDRESS);
         if (!nft_contract_abi) throw new Error('Invalid NFT contract address');
-        const nft_contract_view = new Contract(nft_contract_abi, nft_contract_address, provider);
-        
+        const nft_contract_view = new Contract(nft_contract_abi, process.env.NFT_CONTRACT_ADDRESS, provider);
+
         const collection_name = feltToStr(await nft_contract_view.name());
         const owner = await nft_contract_view.owner_of(token_id);
-        const nft_metadata = await gacha_contract_view.token_metadata(nft_contract_address, token_id);
-        const nft_image_array = await nft_contract_view.token_image(Number(nft_metadata[0]));
-        const nft_image = nft_image_array.map(feltToStr).join('');
-        return res.status(200).send({
+        const metadata = await nft_contract_view.get_token_metadata(token_id);
+
+        const { data: clone_metadata } = await axios.get(process.env.CLONE_TOKEN_URI + token_id);
+
+        return res.status(200).json({
+            tokenId: Number(token_id),
             name: `${collection_name} #${token_id}`,
+            owner: formatStarknet('0x0' + owner.toString(16)),
+            contract_address: process.env.NFT_CONTRACT_ADDRESS,
+            image: clone_metadata?.image || process.env.UNKNOWN_IMAGE_URI,
+            animation: clone_metadata?.animation_url || process.env.UNKNOWN_IMAGE_URI,
             attributes: [
                 {
                     trait_type: 'Type',
-                    value: Number(nft_metadata[0])
+                    value: Number(metadata[0])
                 },
                 {
                     trait_type: 'Rank',
-                    value: Number(nft_metadata[1])
+                    value: Number(metadata[1])
                 },
                 {
                     trait_type: 'Power',
-                    value: Number(nft_metadata[2])
+                    value: Number(metadata[2])
                 }
-            ],
-            image: nft_image,
-            owner: formatStarknet('0x0' + owner.toString(16))
+            ]
         })
     } catch (err) {
-        res.status(200).send({
+        console.error(err);
+        return res.status(200).send({
             tokenId: 0,
             name: 'Unknown NFT',
-            image: 'https://th.bing.com/th/id/OIP.WoxzZ7a55-kKVyfIUDwdVgHaHa',
+            image: process.env.UNKNOWN_IMAGE_URI,
             attributes: [],
-            owner: formatStarknet('0x0'),
-            error: err.message
+            owner: formatStarknet('0x0')
         });
     }
 });
