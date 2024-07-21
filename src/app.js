@@ -26,7 +26,7 @@ const formatStarknet = (address) => {
 };
 
 
-app.get('/metadata/:token_id', async (req, res) => {
+app.get('/nft/:token_id', async (req, res) => {
     try {
         const token_id = req.params.token_id;
 
@@ -66,6 +66,21 @@ app.get('/metadata/:token_id', async (req, res) => {
                 }
             ]
         })
+    } catch (err) {
+        console.error(err);
+        return res.status(200).send({
+            tokenId: 0,
+            name: 'Unknown NFT',
+            image: process.env.UNKNOWN_IMAGE_URI,
+            attributes: [],
+            owner: formatStarknet('0x0')
+        });
+    }
+});
+
+app.get('/tba/:token_id', async (req, res) => {
+    try {
+        
     } catch (err) {
         console.error(err);
         return res.status(200).send({
